@@ -153,7 +153,7 @@ O `PORT` pode ser sobrescrito pela plataforma se necessário (o app lê
 - **`inbox_id` precisa ser um canal WhatsApp Cloud API (oficial)**. Templates
   Meta só funcionam nesse tipo de inbox no Chatwoot.
 - O endpoint `contactable_inboxes` e a criação de `contact_inboxes` dependem
-  da versão do Chatwoot/fork em uso. Se o seu fork (AstraChat) alterou essas
+  da versão do Chatwoot/fork em uso. Se o seu fork (Chatwoot) alterou essas
   rotas, ajuste `ensureContactInbox` em `src/server.js` de acordo.
 - A criação da conversa é feita **sem `source_id`** propositalmente — em
   vários relatos da comunidade, enviar um `source_id` "chutado" faz a API
