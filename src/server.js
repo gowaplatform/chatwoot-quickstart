@@ -74,18 +74,25 @@ async function ensureContactInbox(client, accountId, contactId, inboxId, phone) 
   return data?.source_id || phone;
 }
 
-async function findOpenConversation(client, accountId, contactId, inboxId) {
+async function findConversationToReuse(client, accountId, contactId, inboxId) {
   const { data } = await client.get(
     `/accounts/${accountId}/contacts/${contactId}/conversations`
   );
-  const conversations = data?.payload || [];
-  return (
-    conversations.find(
-      (c) =>
-        Number(c.inbox_id) === Number(inboxId) &&
-        ['open', 'pending', 'snoozed'].includes(c.status)
-    ) || null
+  const conversations = (data?.payload || []).filter(
+    (c) => Number(c.inbox_id) === Number(inboxId)
   );
+  if (!conversations.length) return null;
+
+  const active = conversations.find((c) =>
+    ['open', 'pending', 'snoozed'].includes(c.status)
+  );
+  if (active) return active;
+
+  // Fallback: reaproveita a conversa resolvida mais recente desse inbox
+  const resolved = conversations
+    .filter((c) => c.status === 'resolved')
+    .sort((a, b) => Number(b.id) - Number(a.id));
+  return resolved[0] || null;
 }
 
 async function createConversation(client, accountId, contactId, inboxId) {
@@ -98,11 +105,15 @@ async function createConversation(client, accountId, contactId, inboxId) {
   return data;
 }
 
-async function openConversation(client, accountId, conversationId) {
+async function ensureConversationOpen(client, accountId, conversation) {
+  if (!conversation?.id) return conversation;
+
   await client.post(
-    `/accounts/${accountId}/conversations/${conversationId}/toggle_status`,
+    `/accounts/${accountId}/conversations/${conversation.id}/toggle_status`,
     { status: 'open' }
   );
+  conversation.status = 'open';
+  return conversation;
 }
 
 async function sendMessage(client, accountId, conversationId, content, templateParams) {
@@ -170,19 +181,22 @@ app.post('/send-message', async (req, res) => {
     // 2. Garante vínculo do contato com o inbox informado
     await ensureContactInbox(client, account_id, contact.id, inbox_id, normalizedPhone);
 
-    // 3. Conversa: reaproveita uma aberta/pendente ou cria nova
-    let conversation = await findOpenConversation(client, account_id, contact.id, inbox_id);
-    if (conversation) {
-      if (conversation.status !== 'open') {
-        await openConversation(client, account_id, conversation.id);
-        conversation.status = 'open';
-      }
-    } else {
+    // 3. Conversa: reaproveita existente (incl. resolvida) ou cria nova
+    let conversation = await findConversationToReuse(
+      client,
+      account_id,
+      contact.id,
+      inbox_id
+    );
+    if (!conversation) {
       conversation = await createConversation(client, account_id, contact.id, inbox_id);
     }
     if (!conversation || !conversation.id) {
       throw new Error('Não foi possível localizar ou criar a conversa.');
     }
+
+    // Garante status "open" antes de enviar (Chatwoot pode reutilizar conversa resolvida)
+    conversation = await ensureConversationOpen(client, account_id, conversation);
 
     // 4. Envia texto simples e/ou template Meta
     const message = await sendMessage(
