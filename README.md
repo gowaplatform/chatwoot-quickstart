@@ -4,7 +4,7 @@ Serviço Node.js/Express que resolve, num único POST, o fluxo:
 
 1. Busca o contato pelo telefone (ou cria, se não existir)
 2. Garante o vínculo do contato com o inbox informado
-3. Reaproveita uma conversa aberta/pendente ou cria uma nova
+3. Reaproveita uma conversa aberta/resolvida/pendente ou cria uma nova
 4. Envia a mensagem — texto livre, template Meta, ou os dois juntos
 
 Retorna `conversation_id`, `contact_id` e `status`.
