@@ -98,6 +98,13 @@ async function createConversation(client, accountId, contactId, inboxId) {
   return data;
 }
 
+async function openConversation(client, accountId, conversationId) {
+  await client.post(
+    `/accounts/${accountId}/conversations/${conversationId}/toggle_status`,
+    { status: 'open' }
+  );
+}
+
 async function sendMessage(client, accountId, conversationId, content, templateParams) {
   const payload = { message_type: 'outgoing' };
 
@@ -165,7 +172,12 @@ app.post('/send-message', async (req, res) => {
 
     // 3. Conversa: reaproveita uma aberta/pendente ou cria nova
     let conversation = await findOpenConversation(client, account_id, contact.id, inbox_id);
-    if (!conversation) {
+    if (conversation) {
+      if (conversation.status !== 'open') {
+        await openConversation(client, account_id, conversation.id);
+        conversation.status = 'open';
+      }
+    } else {
       conversation = await createConversation(client, account_id, contact.id, inbox_id);
     }
     if (!conversation || !conversation.id) {
