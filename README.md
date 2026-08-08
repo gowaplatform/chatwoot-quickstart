@@ -54,6 +54,7 @@ api_access_token: SEU_TOKEN_DO_CHATWOOT
   "inbox_id": 1,
   "phone": "5511987654321",
   "name": "José da Silva",
+  "private": false,
   "content": "Olá, tudo bem?"
 }
 ```
@@ -66,6 +67,7 @@ api_access_token: SEU_TOKEN_DO_CHATWOOT
   "inbox_id": 1,
   "phone": "5511987654321",
   "name": "José da Silva",
+  "private": false,
   "content": "Olá {{1}}, seu pedido {{2}} foi confirmado",
   "template_params": {
     "name": "order_confirmation",
@@ -89,6 +91,9 @@ criação** (se o contato já existir no Chatwoot, o nome atual dele não é
 alterado). Se omitido e o contato precisar ser criado, usa
 `DEFAULT_CONTACT_NAME_PREFIX + telefone`.
 
+Campo opcional adicional: `private` — se `true`, envia nota privada (visível
+apenas para agentes no Chatwoot). Padrão: `false`.
+
 ### Exemplo com curl
 
 ```bash
@@ -100,6 +105,7 @@ curl -X POST http://localhost:3000/send-message \
     "inbox_id": 1,
     "phone": "5511987654321",
     "name": "José da Silva",
+    "private": false,
     "content": "Olá {{1}}, seu pedido {{2}} foi confirmado",
     "template_params": {
       "name": "order_confirmation",
@@ -127,7 +133,7 @@ curl -X POST http://localhost:3000/send-message \
 {
   "status": "error",
   "error": "descrição do problema",
-  "details": { "...": "corpo de erro original retornado pelo Chatwoot, quando houver" }
+  "details": { "...": "corpo de erro original retornado pelo ChatGowa, quando houver" }
 }
 ```
 

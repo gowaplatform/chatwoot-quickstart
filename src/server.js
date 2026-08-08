@@ -116,8 +116,11 @@ async function ensureConversationOpen(client, accountId, conversation) {
   return conversation;
 }
 
-async function sendMessage(client, accountId, conversationId, content, templateParams) {
-  const payload = { message_type: 'outgoing' };
+async function sendMessage(client, accountId, conversationId, content, templateParams, isPrivate) {
+  const payload = {
+    message_type: 'outgoing',
+    private: isPrivate === true
+  };
 
   if (content) payload.content = content;
   if (templateParams) payload.template_params = templateParams;
@@ -139,7 +142,7 @@ app.post('/send-message', async (req, res) => {
     });
   }
 
-  const { account_id, inbox_id, phone, name, content, template_params } =
+  const { account_id, inbox_id, phone, name, private: isPrivate, content, template_params } =
     req.body || {};
 
   if (!account_id || !inbox_id || !phone) {
@@ -160,6 +163,14 @@ app.post('/send-message', async (req, res) => {
       error: '"template_params.name" é obrigatório quando "template_params" é enviado.'
     });
   }
+  if (isPrivate !== undefined && typeof isPrivate !== 'boolean') {
+    return res.status(400).json({
+      status: 'error',
+      error: '"private" deve ser true ou false.'
+    });
+  }
+
+  const privateMessage = isPrivate === true;
 
   const normalizedPhone = normalizePhone(phone);
   if (!normalizedPhone) {
@@ -204,7 +215,8 @@ app.post('/send-message', async (req, res) => {
       account_id,
       conversation.id,
       content,
-      template_params
+      template_params,
+      privateMessage
     );
 
     return res.json({
