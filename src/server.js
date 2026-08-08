@@ -118,7 +118,7 @@ async function ensureConversationOpen(client, accountId, conversation) {
 
 async function sendMessage(client, accountId, conversationId, content, templateParams, isPrivate) {
   const payload = {
-    message_type: 'outgoing',
+    message_type: 'incoming',
     private: isPrivate === true
   };
 
