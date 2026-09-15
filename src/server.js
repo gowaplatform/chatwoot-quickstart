@@ -9,6 +9,8 @@ app.use(express.json());
 const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL;
 const PORT = process.env.PORT || 3000;
 const DEFAULT_CONTACT_NAME_PREFIX = process.env.DEFAULT_CONTACT_NAME_PREFIX || 'WhatsApp';
+const RATE_LIMIT_MS = 5000;
+const lastSendByPhone = new Map();
 
 if (!CHATWOOT_BASE_URL) {
   console.error('CHATWOOT_BASE_URL não definido. Configure o .env antes de iniciar.');
@@ -176,6 +178,20 @@ app.post('/send-message', async (req, res) => {
   if (!normalizedPhone) {
     return res.status(400).json({ status: 'error', error: 'Telefone inválido.' });
   }
+
+  const now = Date.now();
+  const lastSendAt = lastSendByPhone.get(normalizedPhone) || 0;
+  const elapsed = now - lastSendAt;
+  if (elapsed < RATE_LIMIT_MS) {
+    const retryAfter = Math.ceil((RATE_LIMIT_MS - elapsed) / 1000);
+    res.set('Retry-After', String(retryAfter));
+    return res.status(429).json({
+      status: 'error',
+      error: 'Aguarde antes de enviar outra mensagem.',
+      retry_after_seconds: retryAfter
+    });
+  }
+  lastSendByPhone.set(normalizedPhone, now);
 
   const client = createClient(CHATWOOT_BASE_URL, token);
 
