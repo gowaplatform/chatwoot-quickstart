@@ -4,9 +4,11 @@
  */
 function normalizePhone(raw) {
   if (!raw) return null;
-  const digits = String(raw).replace(/\D/g, '');
+  const digits = String(raw).trim().replace(/\D/g, '');
   if (!digits) return null;
-  return `+${digits}`;
+  const internationalDigits = digits.startsWith('00') ? digits.slice(2) : digits;
+  if (!internationalDigits) return null;
+  return `+${internationalDigits}`;
 }
 
 module.exports = { normalizePhone };

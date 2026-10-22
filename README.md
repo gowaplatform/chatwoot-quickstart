@@ -133,9 +133,21 @@ curl -X POST http://localhost:3000/send-message \
 {
   "status": "error",
   "error": "descrição do problema",
+  "stage": "message_send",
   "details": { "...": "corpo de erro original retornado pelo ChatGowa, quando houver" }
 }
 ```
+
+`stage` identifica a etapa que falhou (`contact_search`, `contact_create`,
+`inbox_link`, `conversation_search`, `conversation_create`, `conversation_open`
+ou `message_send`). Se o status for `500` e `details` contiver
+`Internal Server Error`, o Chatwoot devolveu o erro; use `stage` para localizar
+qual operação o provocou.
+
+O telefone pode ser enviado com o código do país, com ou sem `+`; o serviço
+converte o prefixo internacional `00` para `+` e compara contatos sem depender
+de espaços, parênteses ou hífens. Números nacionais devem incluir o código do
+país, pois o serviço não presume uma região.
 
 ## Deploy (Docker / EasyPanel)
 

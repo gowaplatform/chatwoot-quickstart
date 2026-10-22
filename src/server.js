@@ -35,10 +35,10 @@ function getToken(req) {
 
 async function findContactByPhone(client, accountId, phone) {
   const { data } = await client.get(`/accounts/${accountId}/contacts/search`, {
-    params: { q: phone }
+    params: { q: phone.slice(1) }
   });
   const results = data?.payload || [];
-  return results.find((c) => c.phone_number === phone) || null;
+  return results.find((c) => normalizePhone(c.phone_number) === phone) || null;
 }
 
 async function createContact(client, accountId, inboxId, phone, name) {
@@ -194,11 +194,13 @@ app.post('/send-message', async (req, res) => {
   lastSendByPhone.set(normalizedPhone, now);
 
   const client = createClient(CHATWOOT_BASE_URL, token);
+  let stage = 'contact_search';
 
   try {
     // 1. Contato: busca por telefone, cria se não existir
     let contact = await findContactByPhone(client, account_id, normalizedPhone);
     if (!contact) {
+      stage = 'contact_create';
       contact = await createContact(client, account_id, inbox_id, normalizedPhone, name);
     }
     if (!contact || !contact.id) {
@@ -206,9 +208,11 @@ app.post('/send-message', async (req, res) => {
     }
 
     // 2. Garante vínculo do contato com o inbox informado
+    stage = 'inbox_link';
     await ensureContactInbox(client, account_id, contact.id, inbox_id, normalizedPhone);
 
     // 3. Conversa: reaproveita existente (incl. resolvida) ou cria nova
+    stage = 'conversation_search';
     let conversation = await findConversationToReuse(
       client,
       account_id,
@@ -216,6 +220,7 @@ app.post('/send-message', async (req, res) => {
       inbox_id
     );
     if (!conversation) {
+      stage = 'conversation_create';
       conversation = await createConversation(client, account_id, contact.id, inbox_id);
     }
     if (!conversation || !conversation.id) {
@@ -223,9 +228,11 @@ app.post('/send-message', async (req, res) => {
     }
 
     // Garante status "open" antes de enviar (Chatwoot pode reutilizar conversa resolvida)
+    stage = 'conversation_open';
     conversation = await ensureConversationOpen(client, account_id, conversation);
 
     // 4. Envia texto simples e/ou template Meta
+    stage = 'message_send';
     const message = await sendMessage(
       client,
       account_id,
@@ -243,10 +250,15 @@ app.post('/send-message', async (req, res) => {
     });
   } catch (err) {
     const chatwootError = err?.response?.data;
-    console.error('Erro ao processar envio:', chatwootError || err.message);
+    console.error('Erro ao processar envio no Chatwoot:', {
+      stage,
+      status: err?.response?.status || null,
+      error: chatwootError || err.message
+    });
     return res.status(err?.response?.status || 500).json({
       status: 'error',
       error: chatwootError?.message || err.message || 'Erro desconhecido',
+      stage,
       details: chatwootError || null
     });
   }
