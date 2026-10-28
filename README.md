@@ -168,6 +168,19 @@ O `PORT` pode ser sobrescrito pela plataforma se necessário (o app lê
 
 ## Observações importantes
 
+- A criação usa a API autenticada da conta: `POST /api/v1/accounts/{account_id}/contacts`.
+  Nesse endpoint, `inbox_id` é obrigatório; enviá-lo junto com `name` e
+  `phone_number` cria o contato já vinculado ao inbox. A página
+  [Create a contact](https://developers.chatwoot.com/api-reference/contacts-api/create-a-contact)
+  descreve outro fluxo: a API pública
+  `POST /public/api/v1/inboxes/{inbox_identifier}/contacts`, que usa o
+  identificador público do inbox e não recebe `inbox_id` no corpo. Ela não é
+  intercambiável com o endpoint autenticado usado por este serviço.
+- Se a API autenticada retornar `500 Internal Server Error` em
+  `contact_create`, a rota e os campos enviados seguem o contrato documentado;
+  o `500` isolado não informa a causa interna. Confira os logs do Chatwoot no
+  horário da requisição e valide se o `inbox_id` existe na mesma conta e se o
+  canal permite associar contatos por telefone.
 - **`inbox_id` precisa ser um canal WhatsApp Cloud API (oficial)**. Templates
   Meta só funcionam nesse tipo de inbox no Chatwoot.
 - O endpoint `contactable_inboxes` e a criação de `contact_inboxes` dependem

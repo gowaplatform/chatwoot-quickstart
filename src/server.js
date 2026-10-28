@@ -41,6 +41,10 @@ async function findContactByPhone(client, accountId, phone) {
   return results.find((c) => normalizePhone(c.phone_number) === phone) || null;
 }
 
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function createContact(client, accountId, inboxId, phone, name) {
   const { data } = await client.post(`/accounts/${accountId}/contacts`, {
     inbox_id: inboxId,
@@ -49,6 +53,29 @@ async function createContact(client, accountId, inboxId, phone, name) {
   });
   // A API retorna o contato dentro de payload.contact (cria contact_inbox junto)
   return data?.payload?.contact || data?.payload || null;
+}
+
+async function createContactWithRetry(client, accountId, inboxId, phone, name, attempts = 2) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= attempts; attempt += 1) {
+    try {
+      return await createContact(client, accountId, inboxId, phone, name);
+    } catch (err) {
+      lastError = err;
+      if (attempt >= attempts) {
+        throw err;
+      }
+
+      console.warn(`Falha ao criar contato (tentativa ${attempt + 1}/${attempts + 1}). Retentando em 3s...`, {
+        status: err?.response?.status || null,
+        data: err?.response?.data || err?.message
+      });
+      await sleep(3000);
+    }
+  }
+
+  throw lastError;
 }
 
 async function getContactableInboxes(client, accountId, contactId) {
@@ -201,7 +228,14 @@ app.post('/send-message', async (req, res) => {
     let contact = await findContactByPhone(client, account_id, normalizedPhone);
     if (!contact) {
       stage = 'contact_create';
-      contact = await createContact(client, account_id, inbox_id, normalizedPhone, name);
+      contact = await createContactWithRetry(
+        client,
+        account_id,
+        inbox_id,
+        normalizedPhone,
+        name,
+        1
+      );
     }
     if (!contact || !contact.id) {
       throw new Error('Não foi possível localizar ou criar o contato.');
