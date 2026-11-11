@@ -19,9 +19,16 @@ Edite `.env`:
 
 ```
 CHATWOOT_BASE_URL=https://app.seudominio.com
+CHATWOOT_BASE_URL_1=https://instancia1.seudominio.com
+CHATWOOT_BASE_URL_2=https://instancia2.seudominio.com
 PORT=3000
 DEFAULT_CONTACT_NAME_PREFIX=WhatsApp
 ```
+
+`CHATWOOT_BASE_URL` é a URL padrão. Para rotear uma requisição para outra
+instalação do Chatwoot, configure `CHATWOOT_BASE_URL_<instance_id>` e envie
+`instance_id` no body. Por exemplo, `instance_id: 1` usa
+`CHATWOOT_BASE_URL_1`; sem `instance_id`, usa `CHATWOOT_BASE_URL`.
 
 O **token do Chatwoot não fica no `.env`** — ele é enviado pelo cliente a cada
 requisição (no header `api_access_token`, ou `Authorization: Bearer <token>`)
@@ -50,6 +57,7 @@ api_access_token: SEU_TOKEN_DO_CHATWOOT
 
 ```json
 {
+  "instance_id": 1,
   "account_id": 1,
   "inbox_id": 1,
   "phone": "5511987654321",
@@ -95,6 +103,8 @@ Campo opcional adicional: `private` — se `true`, envia nota privada (visível
 apenas para agentes no Chatwoot). Padrão: `false`.
 
 ### Exemplo com curl
+
+
 
 ```bash
 curl -X POST http://localhost:3000/send-message \
@@ -163,6 +173,8 @@ docker run -d \
 No EasyPanel: crie um serviço "App" a partir deste diretório/repositório,
 aponte para o `Dockerfile`, defina `CHATWOOT_BASE_URL` como variável de
 ambiente, exponha a porta `3000` e configure o domínio/proxy como preferir.
+Para cada instância adicional, configure também a variável correspondente
+`CHATWOOT_BASE_URL_<instance_id>` (por exemplo, `CHATWOOT_BASE_URL_1`).
 O `PORT` pode ser sobrescrito pela plataforma se necessário (o app lê
 `process.env.PORT`).
 

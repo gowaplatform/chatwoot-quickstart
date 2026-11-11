@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { createClient } = require('./chatwootClient');
 const { normalizePhone } = require('./utils/phone');
+const { getChatwootBaseUrl } = require('./utils/chatwootBaseUrl');
 
 const app = express();
 app.use(express.json());
@@ -171,13 +172,30 @@ app.post('/send-message', async (req, res) => {
     });
   }
 
-  const { account_id, inbox_id, phone, name, private: isPrivate, content, template_params } =
-    req.body || {};
+  const {
+    instance_id: instanceId,
+    account_id,
+    inbox_id,
+    phone,
+    name,
+    private: isPrivate,
+    content,
+    template_params
+  } = req.body || {};
 
   if (!account_id || !inbox_id || !phone) {
     return res.status(400).json({
       status: 'error',
       error: 'Campos obrigatórios: account_id, inbox_id, phone.'
+    });
+  }
+  if (
+    instanceId !== undefined &&
+    (!Number.isSafeInteger(instanceId) || instanceId < 1)
+  ) {
+    return res.status(400).json({
+      status: 'error',
+      error: '"instance_id" deve ser um número inteiro positivo.'
     });
   }
   if (!content && !template_params) {
@@ -199,6 +217,18 @@ app.post('/send-message', async (req, res) => {
     });
   }
 
+  const baseURL = getChatwootBaseUrl(instanceId);
+  if (!baseURL) {
+    const key = instanceId === undefined
+      ? 'CHATWOOT_BASE_URL'
+      : `CHATWOOT_BASE_URL_${instanceId}`;
+    console.error(`${key} não definido. Configure o .env antes de iniciar.`);
+    return res.status(500).json({
+      status: 'error',
+      error: `A URL do Chatwoot para esta instância não está configurada (${key}).`
+    });
+  }
+
   const privateMessage = isPrivate === true;
 
   const normalizedPhone = normalizePhone(phone);
@@ -207,7 +237,8 @@ app.post('/send-message', async (req, res) => {
   }
 
   const now = Date.now();
-  const lastSendAt = lastSendByPhone.get(normalizedPhone) || 0;
+  const rateLimitKey = `${baseURL}:${normalizedPhone}`;
+  const lastSendAt = lastSendByPhone.get(rateLimitKey) || 0;
   const elapsed = now - lastSendAt;
   if (elapsed < RATE_LIMIT_MS) {
     const retryAfter = Math.ceil((RATE_LIMIT_MS - elapsed) / 1000);
@@ -218,9 +249,9 @@ app.post('/send-message', async (req, res) => {
       retry_after_seconds: retryAfter
     });
   }
-  lastSendByPhone.set(normalizedPhone, now);
+  lastSendByPhone.set(rateLimitKey, now);
 
-  const client = createClient(CHATWOOT_BASE_URL, token);
+  const client = createClient(baseURL, token);
   let stage = 'contact_search';
 
   try {
